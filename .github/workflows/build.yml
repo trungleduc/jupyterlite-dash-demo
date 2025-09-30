@@ -1,0 +1,72 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - "*"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-lite:
+    name: Build JupyterLite
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install Conda environment with Micromamba
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          micromamba-version: "1.5.5-0"
+          environment-name: build-env
+          create-args: >-
+            python=3.10
+            pip=24.0
+            jupyterlab
+            jupyterlite-core
+            jupyterlite-xeus
+            specta
+
+      - name: Install the extension
+        shell: bash -l {0}
+        run: |
+          set -eux
+          python -m pip install jupyterpack
+
+      - name: Build the lite site
+        shell: bash -l {0}
+        working-directory: demo
+        run: |
+          set -eux
+          jupyter lite build .
+
+      - name: Upload artifact
+        id: upload-jupyterlite-artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./demo/_output
+          retention-days: 30
+
+  deploy:
+    needs: build-lite
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
