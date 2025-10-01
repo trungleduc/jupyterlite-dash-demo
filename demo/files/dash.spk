@@ -1,5 +1,5 @@
 {
-  "name": "Dash Example",
+  "name": "Dash App",
   "entry": "server.py",
   "framework": "dash"
 }
